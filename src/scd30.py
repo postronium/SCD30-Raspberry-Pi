@@ -94,8 +94,8 @@ class SCD30:
     # return the buffer
     # NOT TESTED
     def fill_cmd_send_buf(self, cmd, args):
-        print("len " + str(len(args)))
-        BUF_SIZE = self.COMMAND_LEN + (self.WORD_LEN + self.CRC8_LEN)*len(args);
+        BUF_SIZE = self.COMMAND_LEN + (self.WORD_LEN + self.CRC8_LEN)*1;
+        BUF_SIZE = 3;
         idx = 0
         buf = [0]*BUF_SIZE
 
@@ -197,7 +197,7 @@ class SCD30:
 
     # NOT TESTED
     def get_data_ready(self, data_ready):
-        return self.i2c_read_words_from_cmd(self.GET_DATA_READY, data_ready,
+        return self.i2c_read_words_from_cmd(self.CMD_GET_DATA_READY, data_ready,
                                            len(data_ready) / self.WORD_LEN)
 
 
