@@ -9,7 +9,11 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from dummyScd30IO import SCD30IO
+# Not fully implemented yet
+# They may be bugs even in the functions with the comment 'WOKRS!'
+
+from scd30io import SCD30IO
+import numpy
 
 class SCD30:
 
@@ -40,9 +44,9 @@ class SCD30:
     def __init__(self):
         self.io = SCD30IO()
 
-    # data : array of bytes
+    # data  : array of bytes
     # count : length of array
-    # TESTED
+    # TESTE ADN WORKS!
     def generate_crc(self, data, count):
         crc = self.CRC8_INIT
         # calculates 8-Bit checksum with given polynomial
@@ -53,35 +57,30 @@ class SCD30:
                     crc = (crc << 1) ^ self.CRC8_POLYNOMIAL;
                 else:
                     crc = (crc << 1);
-                crc = crc%255
+                crc = crc%256
         return crc
 
-    # TESTED
+    # TESTE ADN WORKS!
     def check_crc(self, data, count, checksum):
         if self.generate_crc(data, count) != checksum :
             return self.STATUS_FAIL
         return self.STATUS_OK
 
 
-    # return data unsigned integer 16 bit
-    # data_words (unsigned integer 16 bit) unber of data words to read (without CRC bytes)
-    # NOT TESTED
-    def i2c_read_words(self, data, num_words):
+    # num_words : (unsigned integer 16 bit) number of data words to read (without CRC bytes)
+    # return    : data (unsigned integer 16 bit)
+    def i2c_read_bytes(self, num_words):
         size = num_words * (self.WORD_LEN + self.CRC8_LEN)
         word_buf = [0]*self.MAX_BUFFER_WORDS     #not sure about it
-        buf8 = [0]*self.MAX_BUFFER_WORDS         #not sure about it
-
-        ret = self.io.i2c_read(buf8, size)
-        if ret != self.STATUS_OK:
-            return ret
-
+        buf8 = self.io.i2c_read(size)
+        data = [0]*(num_words*self.WORD_LEN)
 
         # check the CRC for each word
         i = 0
         j = 0
         while(i < size):
-            if self.check_crc(buf8[i:i+self.WORD_LEN], self.WORD_LEN, buf8[i + self.WORD_LEN]) == self.STATUS_FAIL :
-                return self.STATUS_FAIL
+            if self.check_crc(buf8[i:i+self.WORD_LEN], self.WORD_LEN, buf8[i + self.WORD_LEN]) == self.STATUS_FAIL:
+                raise Exception("Fail on CRC Check, Data : " + str(buf8[i]) + ", " + str(buf8[i+1]) + " Recived Checksum: " + str(buf8[i + self.WORD_LEN]))
 
             data[j] = buf8[i]
             data[j + 1] = buf8[i + 1]
@@ -89,28 +88,29 @@ class SCD30:
             i += self.WORD_LEN + self.CRC8_LEN
             j += self.WORD_LEN
 
-        return self.STATUS_OK
+        return data
 
-    # return the buffer
-    # NOT TESTED
+
+    # cmd : (uint16)
+    # args : Array of (uint16)
+    # return the buffer with the command and the argments with their CRC
     def fill_cmd_send_buf(self, cmd, args):
-        BUF_SIZE = self.COMMAND_LEN + (self.WORD_LEN + self.CRC8_LEN)*1;
-        BUF_SIZE = 3;
+        BUF_SIZE = self.COMMAND_LEN + (self.WORD_LEN + self.CRC8_LEN)*len(args);
         idx = 0
         buf = [0]*BUF_SIZE
 
         #store cmd in buffer
-        buf[idx] = ((cmd & 0xFF00) >> 8)%256
+        buf[idx] = ((cmd & 0xFF00) >> 8) % 256
         idx += 1
-        buf[idx] = ((cmd & 0x00FF) >> 0)%256
+        buf[idx] = ((cmd & 0x00FF) >> 0) % 256
         idx += 1
 
         for arg in args:
             #not sure about this (what does the function be16_to_cpu ?)
             #generate crc for the arg
             word = [0]*2
-            word[0] = ((arg & 0xFF00) >> 8)%256
-            word[1] = ((arg & 0x00FF) >> 0)%256
+            word[0] = ((arg & 0xFF00) >> 8) % 256
+            word[1] = ((arg & 0x00FF) >> 0) % 256
             crc = self.generate_crc(word, self.WORD_LEN)
 
             #store the arg with the crc in buffer
@@ -121,33 +121,27 @@ class SCD30:
             buf[idx] = crc
             idx += 1
 
-        print(buf)
         return buf
 
 
-    # NOT TESTED
     def i2c_write(self, command):
         buf = self.fill_cmd_send_buf(command, []);
-        #not sure about this (whats the register address (not the device address)?)
 
-        return self.io.i2c_write(buf);
+        self.io.i2c_write(buf);
 
 
-    # NOT TESTED
-    # This function reads data words from the sensor after a command has been issued
-    def i2c_read_words_from_cmd(self, cmd, data_words, num_words):
-        ret = self.i2c_write(cmd)
+    # This function reads data words from the sensor after a command has been sent
+    # cmd       : (16bit integer)
+    # num_words : number of 16bit int arguments
+    def i2c_read_bytes_from_cmd(self, cmd, num_words):
+        self.i2c_write(cmd)
 
-        if ret != self.STATUS_OK :
-            print("error")
-            return ret
-
-        return self.i2c_read_words(data_words, num_words)
+        return self.i2c_read_bytes(num_words)
 
 
 
-    # NOT TESTED
-    # ambient_pressure_mbar is an u16 array
+    # TESTE ADN WORKS!
+    # ambient_pressure_mbar : (u16 array)
     def start_periodic_measurement(self, ambient_pressure_mbar):
         BUF_SIZE = self.COMMAND_LEN + self.WORD_LEN + self.CRC8_LEN;
 
@@ -159,32 +153,39 @@ class SCD30:
 
         buf = self.fill_cmd_send_buf(self.CMD_START_PERIODIC_MEASUREMENT, [ambient_pressure_mbar])
 
-        return self.io.i2c_write(buf)
+        self.io.i2c_write(buf)
 
-    # NOT TESTED
+    # TESTE ADN WORKS!
     def stop_periodic_measurement(self):
         return self.i2c_write(self.CMD_STOP_PERIODIC_MEASUREMENT)
 
 
-    # NOT TESTED
-    def read_measurement(self, data):
-        word_buf = [0]*6 # 2 words for each co2, temperature, humidity
-        ret = self.i2c_read_words_from_cmd(self.CMD_READ_MEASUREMENT, word_buf,
-                len(word_buf) / self.WORD_LEN)
+    # TESTE ADN WORKS!
+    def read_measurement(self):
+        bytes_buf = [0]*12 # 2 words for each co2, temperature, humidity
+        word_buf = [0]*(len(bytes_buf)/2);
+        data = [0]*(len(word_buf)/2)
 
-        if ret != self.STATUS_OK:
-            return ret
-
-        #TODO special treatement to convert to float 32
-        data[CO2_DATA_INDEX] = (word_buf[0] << 16) | word_buf[1]
-        data[TEMP_DATA_INDEX] = (word_buf[2] << 16) | word_buf[3]
-        data[HUMIDITY_DATA_INDEX] = (word_buf[4] << 16) | word_buf[5]
-
-        return self.STATUS_OK
+        bytes_buf = self.i2c_read_bytes_from_cmd(self.CMD_READ_MEASUREMENT,
+                len(bytes_buf) / self.WORD_LEN)
 
 
-    # NOT TESTED
-    #interval is an u16 integer
+        for i in xrange(len(word_buf)):
+            word_buf[i] = (bytes_buf[i*2] << 8) | bytes_buf[i*2+1]
+            print(word_buf[i])
+
+        #convert to int32
+        data[self.CO2_DATA_INDEX] = (word_buf[0] << 16) | word_buf[1]
+        data[self.TEMP_DATA_INDEX] = (word_buf[2] << 16) | word_buf[3]
+        data[self.HUMIDITY_DATA_INDEX] = (word_buf[4] << 16) | word_buf[5]
+
+        #Convert data to float32
+        floatData = numpy.array(data, dtype=numpy.int32)
+        return floatData.view('float32')
+
+
+    # TESTE ADN WORKS!
+    # interval : (u16 integer)
     def set_measurement_interval(self, interval_sec):
         BUF_SIZE = self.COMMAND_LEN + self.WORD_LEN + self.CRC8_LEN;
 
@@ -192,36 +193,28 @@ class SCD30:
             return self.STATUS_FAIL
 
         buf = self.fill_cmd_send_buf(self.CMD_SET_MEASUREMENT_INTERVAL, [interval_sec])
-        return self.io.i2c_write(0, buf, BUF_SIZE)
+        self.io.i2c_write(buf)
 
 
-    # NOT TESTED
-    def get_data_ready(self, data_ready):
-        return self.i2c_read_words_from_cmd(self.CMD_GET_DATA_READY, data_ready,
-                                           len(data_ready) / self.WORD_LEN)
+    # Strange behaviour
+    def get_data_ready(self):
+        return self.i2c_read_bytes_from_cmd(self.CMD_GET_DATA_READY, 1)
 
 
-    # NOT TESTED
+    # Strange behaviour
     def set_temperature_offset(self, temperature_offset):
         BUF_SIZE = self.COMMAND_LEN + self.WORD_LEN + self.CRC8_LEN;
         buf = self.fill_cmd_send_buf(self.CMD_SET_TEMPERATURE_OFFSET, [temperature_offset])
-        return self.io.i2c_write(0, buf, BUF_SIZE)
+        self.io.i2c_write(buf)
 
 
-    # NOT TESTED
+    # TESTE ADN WORKS!
     def set_altitude(self, altitude):
         BUF_SIZE = self.COMMAND_LEN + self.WORD_LEN + self.CRC8_LEN;
         buf = self.fill_cmd_send_buf(self.CMD_SET_ALTITUDE, [altitude])
-        return self.io.i2c_write(0, buf, BUF_SIZE)
+        self.io.i2c_write(buf)
 
 
-    # NOT TESTED
+    # TESTE ADN WORKS!
     def get_configured_address(self):
         return self.io.get_configured_address()
-
-
-
-    # NOT TESTED
-    def scd_probe(self):
-        self.io.i2c_init()
-        return self.get_data_ready([0])

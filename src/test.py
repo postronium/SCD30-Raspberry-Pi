@@ -1,12 +1,18 @@
-import scd30
+from scd30 import SCD30
+
+sensor = SCD30()
+
+
 
 # CRC test
-#crc = scd30.generate_crc([0, 1, 2, 255, 4, 5, 255, 255, 128, 128, 128, 128, 128, 128, 128], 15)
-#print("The CRC is : " + str(crc))
-#print(scd30.check_crc([0, 1, 2, 255, 4, 5, 255, 255, 128, 128, 128, 128, 128, 128, 128], 15, crc))
+# crc = sensor.generate_crc([253, 235], 2)
+# print("The CRC is : " + str(crc))
+# print(sensor.check_crc([253, 235], 2, crc))
 
-size = 10
-i = 0
-while(i < size):
-    print(i)
-    i += 1
+
+
+data = sensor.read_measurement()
+
+print("result:")
+for byte in data:
+    print(byte)
