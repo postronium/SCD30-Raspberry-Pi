@@ -1,5 +1,6 @@
 # SCD30-Raspberry-Pi
-Python library for Raspberry pi and the SCD30 CO2 sensor
+Python library for Raspberry pi and the SCD30 sensor
+More information about the sensor : https://www.sensirion.com/en/environmental-sensors/carbon-dioxide-sensors-co2/
 
 #Hardware Bug on RPI
 The Raspberry pi has a Hardware bug makes communication with slave i2c devices impossible.
