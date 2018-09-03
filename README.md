@@ -9,3 +9,7 @@ Use i2c-gpio overlay instead of the Raspberry pi Hardware implementation of i2c.
 See https://raspberrypi.stackexchange.com/questions/37796/how-to-use-i2c-gpio-with-raspberry-pi
 <br />
 Some of the function of this library are not fully implemented or buggy.
+
+# Licence
+
+GNU AGPL v3
