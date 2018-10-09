@@ -123,6 +123,32 @@ class SCD30:
 
         return buf
 
+    def fill_cmd_send_buf_no_crc(self, cmd, args):
+        BUF_SIZE = self.COMMAND_LEN + self.WORD_LEN*len(args);
+        idx = 0
+        buf = [0]*BUF_SIZE
+
+        #store cmd in buffer
+        buf[idx] = ((cmd & 0xFF00) >> 8) % 256
+        idx += 1
+        buf[idx] = ((cmd & 0x00FF) >> 0) % 256
+        idx += 1
+
+        for arg in args:
+            #not sure about this (what does the function be16_to_cpu ?)
+            #generate crc for the arg
+            word = [0]*2
+            word[0] = ((arg & 0xFF00) >> 8) % 256
+            word[1] = ((arg & 0x00FF) >> 0) % 256
+
+            #store the arg with the crc in buffer
+            buf[idx] = word[0]
+            idx += 1
+            buf[idx] = word[1]
+            idx += 1
+
+        return buf
+
 
     def i2c_write(self, command):
         buf = self.fill_cmd_send_buf(command, []);
@@ -198,7 +224,9 @@ class SCD30:
 
     # Strange behaviour
     def get_data_ready(self):
-        return self.i2c_read_bytes_from_cmd(self.CMD_GET_DATA_READY, 1)
+        buf = self.fill_cmd_send_buf_no_crc(command, []);
+
+        self.io.i2c_write(buf);
 
 
     # Strange behaviour
