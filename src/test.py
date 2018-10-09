@@ -4,7 +4,7 @@ sensor = SCD30()
 
 
 
-data = sensor.read_measurement()
+data = sensor.get_data_ready()
 
 print("result:")
 for byte in data:

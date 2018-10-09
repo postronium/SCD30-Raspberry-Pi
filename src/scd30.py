@@ -226,8 +226,10 @@ class SCD30:
     def get_data_ready(self):
         buf = self.fill_cmd_send_buf_no_crc(self.CMD_GET_DATA_READY, []);
 
-        self.io.i2c_write(buf);
+        self.io.i2c_write(buf)
 
+        return self.i2c_read_bytes(1)   #read only one word
+        
 
     # Strange behaviour
     def set_temperature_offset(self, temperature_offset):
