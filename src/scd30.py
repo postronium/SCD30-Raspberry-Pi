@@ -198,7 +198,6 @@ class SCD30:
 
         for i in xrange(len(word_buf)):
             word_buf[i] = (bytes_buf[i*2] << 8) | bytes_buf[i*2+1]
-            print(word_buf[i])
 
         #convert to int32
         data[self.CO2_DATA_INDEX] = (word_buf[0] << 16) | word_buf[1]
